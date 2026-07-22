@@ -95,8 +95,6 @@ function WeddingBook() {
 
   <PromptCard
     prompt={book[currentPrompt]}
-    current={completed}
-    total={book.length}
   />
 
   <ProgressBar
@@ -128,7 +126,7 @@ setCurrentMemory((memory) => ({
 
     setCurrentMemory((memory) => ({
       ...memory,
-      extras: Array.from(e.target.files),
+      extras: Array.from(e.target.files ?? []),
     }));
   }}
 />

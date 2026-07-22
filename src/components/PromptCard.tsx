@@ -1,13 +1,9 @@
 type PromptCardProps = {
   prompt: string;
-  current: number;
-  total: number;
 };
 
 function PromptCard({
   prompt,
-  current,
-  total,
 }: PromptCardProps) {
   return (
     <div className="prompt-card">
