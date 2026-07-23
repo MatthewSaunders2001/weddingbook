@@ -3,9 +3,9 @@ import { generateWeddingBook } from "../services/promptEngine";
 import PromptCard from "./PromptCard";
 import ProgressBar from "./ProgressBar";
 import Camera, { type CameraHandle } from "./Camera";
-import PhotoReview from "./PhotoReview";
 import type { Memory } from "../types/memory";
 import MessageScreen from "./MessageScreen";
+import { uploadPhoto } from "../services/uploadPhoto";
 
 function WeddingBook() {
   const [book] = useState(generateWeddingBook());
@@ -26,10 +26,6 @@ function WeddingBook() {
     uploaded: false,
   });
   const cameraRef = useRef<CameraHandle>(null);
-  const preview =
-  currentMemory.mainPhoto
-    ? URL.createObjectURL(currentMemory.mainPhoto)
-    : null;
    if (showMessageScreen) {
   return (
     <MessageScreen
@@ -45,46 +41,7 @@ function WeddingBook() {
     />
   );
 }
-    if (preview) {
-  return (
-    <PhotoReview
-      photo={preview}
-      onRetake={() => {
-        setCurrentMemory((memory) => ({
-          ...memory,
-          mainPhoto: null,
-        }));
-
-        setTimeout(() => {
-          cameraRef.current?.open();
-        }, 100);
-      }}
-      onUpload={() => {
-        setMemories((previous) => [
-  ...previous,
-  {
-    ...currentMemory,
-    prompt: book[currentPrompt],
-    uploaded: true,
-  },
-]);
-        setCompleted((value) => value + 1);
-
-        if (currentPrompt < book.length - 1) {
-          setCurrentPrompt((value) => value + 1);
-        }
-
-        setCurrentMemory({
-          prompt: "",
-          mainPhoto: null,
-          extras: [],
-          message: "",
-          uploaded: false,
-        });
-      }}
-    />
-  );
-}
+    // PhotoReview removed
   return (
     <main className="welcome">
 
@@ -107,13 +64,43 @@ function WeddingBook() {
   </p>
 
   <Camera
-    ref={cameraRef}
-    onPhotoSelected={(file) => {
-setCurrentMemory((memory) => ({
-  ...memory,
-  mainPhoto: file,
-}));    }}
-  />
+  ref={cameraRef}
+  onPhotoSelected={async (file) => {
+    try {
+      const photoUrl = await uploadPhoto(file);
+
+      console.log("Uploaded:", photoUrl);
+
+      setMemories((previous) => [
+        ...previous,
+        {
+          ...currentMemory,
+          mainPhoto: file,
+          prompt: book[currentPrompt],
+          uploaded: true,
+        },
+      ]);
+
+      setCompleted((value) => value + 1);
+
+      if (currentPrompt < book.length - 1) {
+        setCurrentPrompt((value) => value + 1);
+      }
+
+      setCurrentMemory({
+        prompt: "",
+        mainPhoto: null,
+        extras: [],
+        message: "",
+        uploaded: false,
+      });
+
+    } catch (error) {
+      console.error(error);
+      alert("Upload failed.");
+    }
+  }}
+/>
 
 <input
   id="extras"
