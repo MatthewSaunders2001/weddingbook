@@ -6,6 +6,8 @@ import Camera, { type CameraHandle } from "./Camera";
 import type { Memory } from "../types/memory";
 import MessageScreen from "./MessageScreen";
 import { uploadPhoto } from "../services/uploadPhoto";
+import { saveMemory } from "../services/saveMemory";
+import { saveMessage } from "../services/saveMessage";
 
 function WeddingBook() {
   const [book] = useState(generateWeddingBook());
@@ -26,7 +28,7 @@ function WeddingBook() {
     uploaded: false,
   });
   const cameraRef = useRef<CameraHandle>(null);
-   if (showMessageScreen) {
+  if (showMessageScreen) {
   return (
     <MessageScreen
       message={currentMemory.message}
@@ -36,7 +38,29 @@ function WeddingBook() {
           message: value,
         }))
       }
-      onSave={() => setShowMessageScreen(false)}
+      onSave={async () => {
+        if (!currentMemory.message.trim()) {
+  alert("Please write a message first.");
+  return;
+}
+
+        try {
+          await saveMessage(currentMemory.message);
+
+          alert("❤️ Message sent!");
+
+          setCurrentMemory((memory) => ({
+            ...memory,
+            message: "",
+          }));
+
+          setShowMessageScreen(false);
+
+        } catch (error) {
+          console.error(error);
+          alert("Couldn't send message.");
+        }
+      }}
       onBack={() => setShowMessageScreen(false)}
     />
   );
@@ -65,41 +89,54 @@ function WeddingBook() {
 
   <Camera
   ref={cameraRef}
-  onPhotoSelected={async (file) => {
-    try {
-      const photoUrl = await uploadPhoto(file);
+ onPhotoSelected={async (file) => {
+  // Capture values immediately so they don't change later
+  const prompt = book[currentPrompt];
+  const message = currentMemory.message;
 
-      console.log("Uploaded:", photoUrl);
+  // Update the UI immediately
+  setCompleted((value) => value + 1);
 
-      setMemories((previous) => [
-        ...previous,
-        {
-          ...currentMemory,
-          mainPhoto: file,
-          prompt: book[currentPrompt],
-          uploaded: true,
-        },
-      ]);
+  if (currentPrompt < book.length - 1) {
+    setCurrentPrompt((value) => value + 1);
+  }
 
-      setCompleted((value) => value + 1);
+  setCurrentMemory({
+    prompt: "",
+    mainPhoto: null,
+    extras: [],
+    message: "",
+    uploaded: false,
+  });
 
-      if (currentPrompt < book.length - 1) {
-        setCurrentPrompt((value) => value + 1);
-      }
+  try {
+    // Upload in the background
+    const photoUrl = await uploadPhoto(file);
 
-      setCurrentMemory({
-        prompt: "",
-        mainPhoto: null,
+    await saveMemory(
+      prompt,
+      photoUrl,
+      message
+    );
+
+    setMemories((previous) => [
+      ...previous,
+      {
+        prompt,
+        mainPhoto: file,
         extras: [],
-        message: "",
-        uploaded: false,
-      });
+        message,
+        uploaded: true,
+      },
+    ]);
 
-    } catch (error) {
-      console.error(error);
-      alert("Upload failed.");
-    }
-  }}
+    console.log("Uploaded:", photoUrl);
+
+  } catch (error) {
+    console.error(error);
+    alert("Upload failed.");
+  }
+}}
 />
 
 <input
@@ -108,14 +145,37 @@ function WeddingBook() {
   multiple
   accept="image/*"
   style={{ display: "none" }}
-  onChange={(e) => {
-    if (!e.target.files) return;
+  onChange={async (e) => {
+  console.log("1. Gallery opened");
 
-    setCurrentMemory((memory) => ({
-      ...memory,
-      extras: Array.from(e.target.files ?? []),
-    }));
-  }}
+  if (!e.target.files) return;
+
+  const files = Array.from(e.target.files);
+
+  console.log("2. Files:", files);
+
+  try {
+    for (const file of files) {
+      console.log("3. Uploading:", file.name);
+
+      const photoUrl = await uploadPhoto(file);
+
+      console.log("4. Uploaded:", photoUrl);
+
+      await saveMemory(
+        book[currentPrompt],
+        photoUrl,
+        currentMemory.message
+      );
+    }
+
+    alert("Gallery photos uploaded!");
+
+  } catch (error) {
+    console.error("ERROR:", error);
+    alert("Upload failed.");
+  }
+}}
 />
 
   <div className="button-stack">
